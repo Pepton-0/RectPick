@@ -39,7 +39,7 @@ public final class ClientKeyMappings {
     /**
      * Checks whether a key event matches the active PICK_KEY binding.
      *
-     * @param keyCode GLFW key code supplied by the screen key event.
+     * @param keyCode  GLFW key code supplied by the screen key event.
      * @param scanCode platform scan code supplied by the screen key event.
      * @return {@code true} when the registered key mapping is active in the current GUI context and matches the event key.
      */

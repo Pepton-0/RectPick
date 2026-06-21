@@ -18,7 +18,7 @@ import org.slf4j.Logger;
  */
 public final class RectPickNetworking {
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static final String NETWORK_VERSION = "2";
+    private static final String NETWORK_VERSION = "1";
 
     private RectPickNetworking() {
     }
@@ -75,7 +75,7 @@ public final class RectPickNetworking {
      * Emits a RectPick inventory operation debug log when debug logging is enabled.
      *
      * @param message SLF4J message pattern describing the operation.
-     * @param args pattern arguments passed through without additional processing.
+     * @param args    pattern arguments passed through without additional processing.
      */
     private static void debugLog(String message, Object... args) {
         if (Consts.debugLog) {

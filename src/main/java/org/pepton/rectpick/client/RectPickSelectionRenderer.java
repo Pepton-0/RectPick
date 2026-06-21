@@ -1,7 +1,9 @@
 package org.pepton.rectpick.client;
 
 import com.mojang.blaze3d.platform.Window;
+
 import java.util.List;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -64,7 +66,7 @@ public final class RectPickSelectionRenderer {
     /**
      * Starts or refreshes the selected-source-slot highlight animation.
      *
-     * @param menuId menu id that owns the highlighted slot indices.
+     * @param menuId      menu id that owns the highlighted slot indices.
      * @param slotIndices menu slot indices to render.
      */
     public void showSelectedSlots(int menuId, List<Integer> slotIndices) {
@@ -85,7 +87,7 @@ public final class RectPickSelectionRenderer {
     /**
      * Starts or refreshes the moved-slot highlight animation.
      *
-     * @param menuId menu id that owns the highlighted slot indices.
+     * @param menuId      menu id that owns the highlighted slot indices.
      * @param slotIndices menu slot indices to render.
      */
     public void showMovedSlots(int menuId, List<Integer> slotIndices) {

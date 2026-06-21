@@ -1,9 +1,11 @@
 package org.pepton.rectpick.api;
 
 import com.mojang.logging.LogUtils;
+
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
+
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.Slot;
@@ -12,10 +14,11 @@ import org.pepton.rectpick.network.MoveItemsPayload;
 import org.slf4j.Logger;
 
 /**
- * AE2 integration point for RectPick.
+ * AE2 terminal bridge for storage entries that are not normal Minecraft slots.
  * <p>
- * This class is only called when AE2 is loaded. It follows AE2's terminal interaction
- * model by resolving RepoSlot entries to serial ids and delegating movement to AE2's menu logic.
+ * Normal inventories stay on RectPick's menu-click transfer path. This class is only used when a source or target is
+ * AE2's virtual terminal storage area, where the visible slot does not expose the real item stack through vanilla slot
+ * pickup semantics.
  */
 public final class Ae2Api {
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -23,21 +26,9 @@ public final class Ae2Api {
     private static final String ME_STORAGE_MENU_CLASS_NAME = "appeng.menu.me.common.MEStorageMenu";
     private static final String REPO_SLOT_CLASS_NAME = "appeng.client.gui.me.common.RepoSlot";
     private static final String INVENTORY_ACTION_CLASS_NAME = "appeng.helpers.InventoryAction";
-    private static final String CRAFTING_GRID_SEMANTIC_ID = "CRAFTING_GRID";
     private static final String STORAGE_SEMANTIC_ID = "STORAGE";
 
     private Ae2Api() {
-    }
-
-    /**
-     * Checks whether this target points at AE2 terminal storage.
-     *
-     * @param menu current menu.
-     * @param targetSlotIndex menu slot index selected as transfer target.
-     * @return {@code true} when the target is AE2's storage display area.
-     */
-    public static boolean isStorageTarget(AbstractContainerMenu menu, int targetSlotIndex) {
-        return isRepoSlot(menu, targetSlotIndex) || hasSlotSemantic(menu, targetSlotIndex, STORAGE_SEMANTIC_ID);
     }
 
     /**
@@ -51,36 +42,41 @@ public final class Ae2Api {
     }
 
     /**
+     * Checks whether this menu slot points at AE2 terminal storage.
+     *
+     * @param menu      current menu.
+     * @param slotIndex menu slot index selected by the user.
+     * @return {@code true} when the slot is AE2's storage display area.
+     */
+    public static boolean isStorageTarget(AbstractContainerMenu menu, int slotIndex) {
+        return isRepoSlot(menu, slotIndex) || hasSlotSemantic(menu, slotIndex, STORAGE_SEMANTIC_ID);
+    }
+
+    /**
      * Checks whether AE2 should own this server transfer.
      *
-     * @param menu current server menu.
-     * @param targetSlotIndex target menu slot index from the client.
+     * @param menu             current server menu.
      * @param targetAe2Storage whether the client selected AE2 storage as the destination.
-     * @param sourceSlots selected source slots and client-visible stacks.
-     * @return {@code true} when the operation should be handled through AE2 storage APIs.
+     * @param sourceSlots      selected source slots and client-visible stacks.
+     * @return {@code true} when storage entries are involved and vanilla slot pickup cannot represent the operation.
      */
     public static boolean shouldHandleServerTransfer(
             AbstractContainerMenu menu,
-            int targetSlotIndex,
             boolean targetAe2Storage,
             List<MoveItemsPayload.SourceSlot> sourceSlots
     ) {
-        if (!isTerminalMenu(menu)) {
-            return false;
-        }
-
-        return targetAe2Storage || sourceSlots.stream().anyMatch(sourceSlot -> sourceSlot.ae2Serial() >= 0);
+        return isTerminalMenu(menu) && (targetAe2Storage || sourceSlots.stream().anyMatch(sourceSlot -> sourceSlot.ae2Serial() >= 0));
     }
 
     /**
      * Moves selected items between normal slots and AE2 terminal storage on the server.
      *
-     * @param menu current AE2 terminal menu.
-     * @param player server player requesting the transfer.
-     * @param targetSlotIndex target menu slot index selected by the client.
+     * @param menu             current AE2 terminal menu.
+     * @param player           server player requesting the transfer.
+     * @param targetSlotIndex  target menu slot index selected by the client.
      * @param targetAe2Storage whether the client selected AE2 storage as the destination.
-     * @param sourceSlots selected source slots and client-visible stacks.
-     * @return total number of items moved between AE2 storage and normal inventory slots.
+     * @param sourceSlots      selected source slots and client-visible stacks.
+     * @return total moved item count when countable, or invoked storage-entry interaction count for AE2 source entries.
      */
     public static int serverTransfer(
             AbstractContainerMenu menu,
@@ -89,11 +85,7 @@ public final class Ae2Api {
             boolean targetAe2Storage,
             List<MoveItemsPayload.SourceSlot> sourceSlots
     ) {
-        if (!isTerminalMenu(menu)) {
-            return 0;
-        }
-
-        if (!canInteractWithGrid(menu)) {
+        if (!isTerminalMenu(menu) || !canInteractWithGrid(menu)) {
             return 0;
         }
 
@@ -118,10 +110,10 @@ public final class Ae2Api {
     /**
      * Quick-moves real menu source slots into AE2 terminal storage using AE2's menu logic.
      *
-     * @param menu AE2 terminal menu.
-     * @param player server player requesting the transfer.
+     * @param menu        AE2 terminal menu.
+     * @param player      server player requesting the transfer.
      * @param sourceSlots selected source slot snapshots.
-     * @return number of items accepted by AE2 storage.
+     * @return number of items removed from normal source slots.
      */
     private static int quickMoveSlotsIntoStorage(
             AbstractContainerMenu menu,
@@ -142,7 +134,7 @@ public final class Ae2Api {
 
             int beforeCount = sourceSlot.getItem().getCount();
             menu.quickMoveStack(player, sourceSlotIndex);
-            int afterCount = sourceSlot.getItem().getCount();
+            int afterCount = sourceSlot.hasItem() ? sourceSlot.getItem().getCount() : 0;
             movedTotal += Math.max(0, beforeCount - afterCount);
         }
 
@@ -152,9 +144,9 @@ public final class Ae2Api {
     /**
      * Shift-clicks AE2 storage entries using AE2's menu interaction logic.
      *
-     * @param menu AE2 terminal menu.
+     * @param menu        AE2 terminal menu.
      * @param sourceSlots selected source slot snapshots; AE2 serials identify storage entries.
-     * @return number of AE2 storage interactions invoked.
+     * @return number of storage-entry interactions invoked.
      */
     private static int shiftClickStorageEntries(AbstractContainerMenu menu, List<MoveItemsPayload.SourceSlot> sourceSlots) {
         int movedTotal = 0;
@@ -171,7 +163,7 @@ public final class Ae2Api {
     /**
      * Returns the AE2 storage entry serial represented by a client RepoSlot.
      *
-     * @param menu current menu that owns the slot.
+     * @param menu      current menu that owns the slot.
      * @param slotIndex menu slot index to inspect.
      * @return AE2 serial, or {@code -1} when the slot is not an AE2 storage entry.
      */
@@ -192,8 +184,8 @@ public final class Ae2Api {
     /**
      * Invokes AE2's ME storage interaction method.
      *
-     * @param menu AE2 terminal menu.
-     * @param serial AE2 storage entry serial, or {@code -1} for empty virtual slot behavior.
+     * @param menu       AE2 terminal menu.
+     * @param serial     AE2 storage entry serial, or {@code -1} for empty virtual slot behavior.
      * @param actionName name of the AE2 InventoryAction enum constant to invoke.
      * @return {@code true} when the interaction method was invoked.
      */
@@ -203,30 +195,30 @@ public final class Ae2Api {
             return false;
         }
 
-        return invokeVoid(menu, "handleInteraction", new Class<?>[] {long.class, action.getClass()}, serial, action);
+        return invokeVoid(menu, "handleInteraction", new Class<?>[]{long.class, action.getClass()}, serial, action);
     }
 
     /**
      * Checks whether an AE2 menu slot has the requested slot semantic.
      *
-     * @param menu menu to inspect; may be any vanilla or modded menu.
-     * @param targetSlotIndex valid menu slot index to inspect.
+     * @param menu               menu to inspect; may be any vanilla or modded menu.
+     * @param slotIndex          valid menu slot index to inspect.
      * @param expectedSemanticId AE2 slot semantic id, such as {@code STORAGE}.
      * @return {@code true} when the menu is an AE2 menu and the slot semantic id matches.
      */
-    private static boolean hasSlotSemantic(AbstractContainerMenu menu, int targetSlotIndex, String expectedSemanticId) {
-        if (!isInstanceOf(menu, AE_BASE_MENU_CLASS_NAME) || !menu.isValidSlotIndex(targetSlotIndex)) {
+    private static boolean hasSlotSemantic(AbstractContainerMenu menu, int slotIndex, String expectedSemanticId) {
+        if (!isInstanceOf(menu, AE_BASE_MENU_CLASS_NAME) || !menu.isValidSlotIndex(slotIndex)) {
             return false;
         }
 
-        Object semantic = invoke(menu, "getSlotSemantic", new Class<?>[] {Slot.class}, menu.getSlot(targetSlotIndex));
+        Object semantic = invoke(menu, "getSlotSemantic", new Class<?>[]{Slot.class}, menu.getSlot(slotIndex));
         return semantic != null && expectedSemanticId.equals(getSemanticId(semantic));
     }
 
     /**
      * Checks whether one menu slot is AE2's virtual repository slot.
      *
-     * @param menu current menu that owns the slot.
+     * @param menu      current menu that owns the slot.
      * @param slotIndex menu slot index to inspect.
      * @return {@code true} when the slot is an AE2 RepoSlot.
      */
@@ -280,7 +272,7 @@ public final class Ae2Api {
     /**
      * Checks an object's runtime type by class name without requiring compile-time access to that class.
      *
-     * @param value object to inspect.
+     * @param value     object to inspect.
      * @param className fully qualified class name.
      * @return {@code true} when {@code value} is an instance of the named class.
      */
@@ -299,7 +291,7 @@ public final class Ae2Api {
     /**
      * Invokes a no-argument method through reflection.
      *
-     * @param target object that owns the method.
+     * @param target     object that owns the method.
      * @param methodName method name to invoke.
      * @return raw method result, or {@code null} when invocation fails.
      */
@@ -310,10 +302,10 @@ public final class Ae2Api {
     /**
      * Invokes a method through reflection.
      *
-     * @param target object that owns the method.
-     * @param methodName method name to invoke.
+     * @param target         object that owns the method.
+     * @param methodName     method name to invoke.
      * @param parameterTypes exact parameter types used to find the method.
-     * @param args invocation arguments matching {@code parameterTypes}.
+     * @param args           invocation arguments matching {@code parameterTypes}.
      * @return raw method result, or {@code null} when invocation fails.
      */
     private static Object invoke(Object target, String methodName, Class<?>[] parameterTypes, Object... args) {
@@ -334,10 +326,10 @@ public final class Ae2Api {
     /**
      * Invokes a method through reflection and reports whether invocation succeeded.
      *
-     * @param target object that owns the method.
-     * @param methodName method name to invoke.
-     * @param parameterTypes exact parameter types used to find the method.
-     * @param args invocation arguments matching {@code parameterTypes}.
+     * @param target         object that owns the method.
+     * @param methodName     method name to invoke.
+     * @param parameterTypes exact parameter type list.
+     * @param args           invocation arguments matching {@code parameterTypes}.
      * @return {@code true} when the method was found and invoked without an exception.
      */
     private static boolean invokeVoid(Object target, String methodName, Class<?>[] parameterTypes, Object... args) {
@@ -359,8 +351,8 @@ public final class Ae2Api {
     /**
      * Finds a method declared on a class or one of its superclasses.
      *
-     * @param type class to start searching from.
-     * @param methodName method name to find.
+     * @param type           class to start searching from.
+     * @param methodName     method name to find.
      * @param parameterTypes exact parameter type list.
      * @return matching method, or {@code null} when absent.
      */

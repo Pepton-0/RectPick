@@ -2,6 +2,7 @@ package org.pepton.rectpick.network;
 
 import java.util.ArrayList;
 import java.util.List;
+
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -13,10 +14,10 @@ import org.pepton.rectpick.Main;
 /**
  * Server-bound payload requesting a RectPick inventory transfer.
  *
- * @param containerId menu container id observed by the client when the request was created.
- * @param targetSlotIndex menu slot index whose inventory is used as the destination.
+ * @param containerId      menu container id observed by the client when the request was created.
+ * @param targetSlotIndex  menu slot index whose inventory is used as the destination.
  * @param targetAe2Storage whether the client selected AE2 terminal storage as the destination.
- * @param sourceSlots selected source menu slots and client-visible stacks; copied defensively by the canonical constructor.
+ * @param sourceSlots      selected source menu slots and client-visible stacks; copied defensively by the canonical constructor.
  */
 public record MoveItemsPayload(
         int containerId,
@@ -41,10 +42,10 @@ public record MoveItemsPayload(
     /**
      * Creates an immutable move request.
      *
-     * @param containerId current menu container id observed by the client.
-     * @param targetSlotIndex menu slot index selecting the destination inventory.
+     * @param containerId      current menu container id observed by the client.
+     * @param targetSlotIndex  menu slot index selecting the destination inventory.
      * @param targetAe2Storage whether the client selected AE2 terminal storage as the destination.
-     * @param sourceSlots selected source slots; must be small enough for the codec limit.
+     * @param sourceSlots      selected source slots; must be small enough for the codec limit.
      */
     public MoveItemsPayload {
         sourceSlots = List.copyOf(sourceSlots);

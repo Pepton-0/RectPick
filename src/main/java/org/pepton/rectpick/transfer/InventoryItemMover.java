@@ -1,6 +1,7 @@
 package org.pepton.rectpick.transfer;
 
 import java.util.List;
+
 import net.minecraft.world.Container;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
@@ -19,9 +20,9 @@ public final class InventoryItemMover {
      * Moves as much of one mutable stack as possible into destination slots.
      *
      * @param previousInventory source inventory that owns {@code beforeMoveStack}; must not be the same object as {@code nextInventory}.
-     * @param nextInventory destination inventory that owns every slot in {@code destinationSlots}.
-     * @param beforeMoveStack mutable source stack from the source slot; it is shrunk by the moved amount.
-     * @param destinationSlots destination slots ordered by insertion priority and filtered to the destination inventory.
+     * @param nextInventory     destination inventory that owns every slot in {@code destinationSlots}.
+     * @param beforeMoveStack   mutable source stack from the source slot; it is shrunk by the moved amount.
+     * @param destinationSlots  destination slots ordered by insertion priority and filtered to the destination inventory.
      * @return number of items removed from {@code beforeMoveStack} and inserted into destination slots.
      */
     public static int moveItemStack(Container previousInventory, Container nextInventory, ItemStack beforeMoveStack, List<Slot> destinationSlots) {
@@ -44,8 +45,8 @@ public final class InventoryItemMover {
     /**
      * Copies as much of one mutable stack as possible into destination slots without changing a source inventory.
      *
-     * @param nextInventory destination inventory that owns every slot in {@code destinationSlots}.
-     * @param copiedStack mutable stack copy; it is shrunk by the copied amount.
+     * @param nextInventory    destination inventory that owns every slot in {@code destinationSlots}.
+     * @param copiedStack      mutable stack copy; it is shrunk by the copied amount.
      * @param destinationSlots destination slots ordered by insertion priority and filtered to the destination inventory.
      * @return number of items removed from {@code copiedStack} and inserted into destination slots.
      */
@@ -69,8 +70,8 @@ public final class InventoryItemMover {
      * Checks whether a destination slot can accept the supplied stack.
      *
      * @param destinationSlot slot being tested; must be active and belong to {@code nextInventory}.
-     * @param nextInventory inventory that should receive the stack.
-     * @param stack stack to insert; must not be empty.
+     * @param nextInventory   inventory that should receive the stack.
+     * @param stack           stack to insert; must not be empty.
      * @return {@code true} when slot and container placement rules allow at least one item type-compatible insertion.
      */
     public static boolean canAcceptStack(Slot destinationSlot, Container nextInventory, ItemStack stack) {
@@ -87,8 +88,8 @@ public final class InventoryItemMover {
     /**
      * Merges a moving stack into compatible existing destination stacks.
      *
-     * @param nextInventory destination inventory used for placement and stack limits.
-     * @param movingStack mutable stack being inserted; it is shrunk by successful merges.
+     * @param nextInventory    destination inventory used for placement and stack limits.
+     * @param movingStack      mutable stack being inserted; it is shrunk by successful merges.
      * @param destinationSlots ordered candidate slots belonging to {@code nextInventory}.
      */
     private static void moveIntoExistingStacks(Container nextInventory, ItemStack movingStack, List<Slot> destinationSlots) {
@@ -109,8 +110,8 @@ public final class InventoryItemMover {
     /**
      * Inserts a moving stack into empty destination slots.
      *
-     * @param nextInventory destination inventory used for placement and stack limits.
-     * @param movingStack mutable stack being inserted; it is shrunk by successful inserts.
+     * @param nextInventory    destination inventory used for placement and stack limits.
+     * @param movingStack      mutable stack being inserted; it is shrunk by successful inserts.
      * @param destinationSlots ordered candidate slots belonging to {@code nextInventory}.
      */
     private static void moveIntoEmptySlots(Container nextInventory, ItemStack movingStack, List<Slot> destinationSlots) {
@@ -131,8 +132,8 @@ public final class InventoryItemMover {
      * Moves items from one mutable stack into one destination slot.
      *
      * @param destinationSlot destination slot; must pass {@link #canAcceptStack(Slot, Container, ItemStack)}.
-     * @param nextInventory destination inventory that owns {@code destinationSlot}.
-     * @param movingStack mutable source stack; it is shrunk by the inserted amount.
+     * @param nextInventory   destination inventory that owns {@code destinationSlot}.
+     * @param movingStack     mutable source stack; it is shrunk by the inserted amount.
      */
     private static void moveIntoSlot(Slot destinationSlot, Container nextInventory, ItemStack movingStack) {
         if (!canAcceptStack(destinationSlot, nextInventory, movingStack)) {
@@ -168,8 +169,8 @@ public final class InventoryItemMover {
      * Computes the effective max stack size for a slot and item.
      *
      * @param destinationSlot destination slot that supplies slot-specific limits.
-     * @param nextInventory destination inventory that supplies container-specific limits.
-     * @param stack stack being inserted.
+     * @param nextInventory   destination inventory that supplies container-specific limits.
+     * @param stack           stack being inserted.
      * @return the minimum of slot, container, and item max stack size.
      */
     private static int getSlotLimit(Slot destinationSlot, Container nextInventory, ItemStack stack) {

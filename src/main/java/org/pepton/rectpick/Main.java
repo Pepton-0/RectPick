@@ -35,7 +35,7 @@ public class Main {
     /**
      * Creates the mod entry point and registers mod bus listeners.
      *
-     * @param modEventBus NeoForge mod event bus provided by the loader; must be the bus for this mod instance.
+     * @param modEventBus  NeoForge mod event bus provided by the loader; must be the bus for this mod instance.
      * @param modContainer NeoForge mod container provided by the loader; currently kept for constructor compatibility.
      */
     public Main(IEventBus modEventBus, ModContainer modContainer) {

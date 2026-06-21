@@ -3,9 +3,9 @@ package org.pepton.rectpick.client;
 /**
  * Axis-aligned rectangle in GUI-scaled screen space.
  *
- * @param left minimum X coordinate.
- * @param top minimum Y coordinate.
- * @param right maximum X coordinate.
+ * @param left   minimum X coordinate.
+ * @param top    minimum Y coordinate.
+ * @param right  maximum X coordinate.
  * @param bottom maximum Y coordinate.
  */
 public record GuiRect(double left, double top, double right, double bottom) {
@@ -28,9 +28,9 @@ public record GuiRect(double left, double top, double right, double bottom) {
     /**
      * Tests whether this rectangle intersects another axis-aligned rectangle.
      *
-     * @param otherLeft minimum X coordinate of the other rectangle.
-     * @param otherTop minimum Y coordinate of the other rectangle.
-     * @param otherRight maximum X coordinate of the other rectangle.
+     * @param otherLeft   minimum X coordinate of the other rectangle.
+     * @param otherTop    minimum Y coordinate of the other rectangle.
+     * @param otherRight  maximum X coordinate of the other rectangle.
      * @param otherBottom maximum Y coordinate of the other rectangle.
      * @return {@code true} when the two rectangles overlap with positive area.
      */

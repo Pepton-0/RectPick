@@ -2,9 +2,11 @@ package org.pepton.rectpick.client;
 
 import com.mojang.blaze3d.platform.Window;
 import com.mojang.logging.LogUtils;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.events.ContainerEventHandler;
@@ -243,8 +245,8 @@ public final class InventoryRangeSelectionHandler {
     /**
      * Decides whether a small drag should be interpreted as a transfer gesture.
      *
-     * @param start GUI point captured on PICK_KEY DOWN; must not be {@code null}.
-     * @param end GUI point captured on PICK_KEY UP; must not be {@code null}.
+     * @param start                  GUI point captured on PICK_KEY DOWN; must not be {@code null}.
+     * @param end                    GUI point captured on PICK_KEY UP; must not be {@code null}.
      * @param candidateSelectedSlots non-empty slot hits that a range selection would produce for the gesture.
      * @return {@code true} when stored source slots exist and the drag is empty or within configured tolerance.
      */
@@ -367,9 +369,9 @@ public final class InventoryRangeSelectionHandler {
     /**
      * Collects item-containing slots intersecting a selection rectangle.
      *
-     * @param screen container screen whose menu slots are checked.
+     * @param screen        container screen whose menu slots are checked.
      * @param selectionRect normalized GUI rectangle to test against slot screen bounds.
-     * @param logHits {@code true} to log the rectangle and every intersecting slot.
+     * @param logHits       {@code true} to log the rectangle and every intersecting slot.
      * @return menu slot indices for intersecting slots that currently contain items.
      */
     private List<Integer> collectIntersectingSlots(AbstractContainerScreen<?> screen, GuiRect selectionRect, boolean logHits) {
@@ -416,8 +418,8 @@ public final class InventoryRangeSelectionHandler {
      * Performs a transfer gesture using the stored source selection.
      *
      * @param screen current container screen; must own the stored selection menu id.
-     * @param start GUI point captured on PICK_KEY DOWN, used as a fallback target lookup point.
-     * @param end GUI point captured on PICK_KEY UP, preferred as the target lookup point.
+     * @param start  GUI point captured on PICK_KEY DOWN, used as a fallback target lookup point.
+     * @param end    GUI point captured on PICK_KEY UP, preferred as the target lookup point.
      * @param reason short reason logged to explain why this gesture became a transfer.
      */
     private void handleTransferGesture(AbstractContainerScreen<?> screen, GuiPoint start, GuiPoint end, String reason) {
@@ -543,12 +545,22 @@ public final class InventoryRangeSelectionHandler {
      * Finds the target slot for a transfer gesture.
      *
      * @param screen container screen whose menu slots are searched.
-     * @param start DOWN point used only if no slot is found at {@code end}.
-     * @param end UP point used as the primary target lookup position.
+     * @param start  DOWN point used only if no slot is found at {@code end}.
+     * @param end    UP point used as the primary target lookup position.
      * @return active slot under or near {@code end} or {@code start}, or {@code null} when no inventory is close enough.
      */
     private Slot findTransferTargetSlot(AbstractContainerScreen<?> screen, GuiPoint start, GuiPoint end) {
-        Slot targetSlot = findSlotAt(screen, end);
+        Slot targetSlot = findNearestAe2StorageSlot(screen, end);
+        if (targetSlot != null) {
+            return targetSlot;
+        }
+
+        targetSlot = findNearestAe2StorageSlot(screen, start);
+        if (targetSlot != null) {
+            return targetSlot;
+        }
+
+        targetSlot = findSlotAt(screen, end);
         if (targetSlot != null) {
             return targetSlot;
         }
@@ -569,7 +581,7 @@ public final class InventoryRangeSelectionHandler {
     /**
      * Counts selected source slots that already belong to the target inventory.
      *
-     * @param screen current container screen; must own the stored selected source slot indices.
+     * @param screen     current container screen; must own the stored selected source slot indices.
      * @param targetSlot slot whose container is treated as the destination inventory.
      * @return count of valid stored source slots whose container matches {@code targetSlot.container}.
      */
@@ -592,11 +604,10 @@ public final class InventoryRangeSelectionHandler {
      * Finds an active slot under one GUI point.
      *
      * @param screen container screen whose slots are searched.
-     * @param point GUI-scaled point to test against slot screen bounds.
+     * @param point  GUI-scaled point to test against slot screen bounds.
      * @return active slot containing the point, or {@code null} when no slot contains it.
      */
     private Slot findSlotAt(AbstractContainerScreen<?> screen, GuiPoint point) {
-        Slot firstHit = null;
         for (Slot slot : screen.getMenu().slots) {
             if (!slot.isActive()) {
                 continue;
@@ -611,34 +622,81 @@ public final class InventoryRangeSelectionHandler {
                 continue;
             }
 
-            if (isAe2StorageSlot(screen.getMenu(), slot)) {
-                return slot;
-            }
-
-            if (firstHit == null) {
-                firstHit = slot;
-            }
+            return slot;
         }
 
-        return firstHit;
+        return null;
     }
 
     /**
-     * Checks whether a slot represents AE2 terminal storage and should win hit-test ties.
+     * Finds the nearest AE2 terminal storage slot using one synthetic storage-area bounds.
      *
-     * @param menu menu that owns the slot.
-     * @param slot slot hit by the cursor.
-     * @return {@code true} when AE2 is loaded and the slot points at terminal storage.
+     * @param screen container screen whose menu may be an AE2 terminal.
+     * @param point  GUI-scaled point that may be in a frame between storage slots.
+     * @return nearest AE2 storage slot, or {@code null} when the point is outside the storage snap area.
      */
-    private boolean isAe2StorageSlot(AbstractContainerMenu menu, Slot slot) {
-        return ModList.get().isLoaded("ae2") && Ae2Api.isStorageTarget(menu, menuIndexOfSlot(menu, slot));
+    private Slot findNearestAe2StorageSlot(AbstractContainerScreen<?> screen, GuiPoint point) {
+        if (!ModList.get().isLoaded("ae2") || !Ae2Api.isTerminalMenu(screen.getMenu())) {
+            return null;
+        }
+
+        StorageSlotBounds storageBounds = collectAe2StorageBounds(screen);
+        if (storageBounds == null) {
+            return null;
+        }
+
+        double distance = storageBounds.distanceTo(point);
+        if (distance > Consts.transferTargetSnapDistance) {
+            return null;
+        }
+
+        Slot nearestSlot = storageBounds.nearestSlotTo(point);
+        if (nearestSlot == null) {
+            return null;
+        }
+
+        debugLog(
+                "RectPick transfer target snapped to AE2 storage area: mouse=({}, {}), distance={}, targetMenuSlot={}, targetContainerSlot={}",
+                point.x(),
+                point.y(),
+                distance,
+                menuIndexOfSlot(screen.getMenu(), nearestSlot),
+                nearestSlot.getContainerSlot()
+        );
+        return nearestSlot;
+    }
+
+    /**
+     * Collects AE2 terminal storage slots into one screen-space area that includes frames between slots.
+     *
+     * @param screen container screen whose menu may contain AE2 storage slots.
+     * @return storage-area bounds, or {@code null} when no AE2 storage slots are visible.
+     */
+    private StorageSlotBounds collectAe2StorageBounds(AbstractContainerScreen<?> screen) {
+        StorageSlotBounds storageBounds = null;
+
+        for (Slot slot : screen.getMenu().slots) {
+            if (!slot.isActive() || !Ae2Api.isStorageTarget(screen.getMenu(), menuIndexOfSlot(screen.getMenu(), slot))) {
+                continue;
+            }
+
+            if (storageBounds == null) {
+                storageBounds = new StorageSlotBounds();
+            }
+
+            double slotLeft = screen.getGuiLeft() + slot.x;
+            double slotTop = screen.getGuiTop() + slot.y;
+            storageBounds.includeSlot(slot, slotLeft, slotTop, slotLeft + SLOT_SIZE, slotTop + SLOT_SIZE);
+        }
+
+        return storageBounds;
     }
 
     /**
      * Finds a representative slot from the nearest inventory within the configured snap distance.
      *
      * @param screen container screen whose active slot groups are searched.
-     * @param point GUI-scaled point that may be just outside an inventory.
+     * @param point  GUI-scaled point that may be just outside an inventory.
      * @return nearest slot from the nearest inventory, or {@code null} when all inventories are too far away.
      */
     private Slot findNearestInventorySlot(AbstractContainerScreen<?> screen, GuiPoint point) {
@@ -648,7 +706,11 @@ public final class InventoryRangeSelectionHandler {
 
         for (InventoryBounds inventory : inventories) {
             double distance = inventory.distanceTo(point);
-            if (distance > Consts.transferTargetSnapDistance || distance >= nearestDistance) {
+            if (distance > Consts.transferTargetSnapDistance) {
+                continue;
+            }
+
+            if (distance >= nearestDistance) {
                 continue;
             }
 
@@ -708,7 +770,7 @@ public final class InventoryRangeSelectionHandler {
      * Finds the bounds object for one container using identity comparison.
      *
      * @param inventories existing inventory bounds.
-     * @param container backing container to locate.
+     * @param container   backing container to locate.
      * @return matching bounds, or {@code null} when this container has not been seen.
      */
     private InventoryBounds findInventoryBounds(List<InventoryBounds> inventories, Container container) {
@@ -790,7 +852,7 @@ public final class InventoryRangeSelectionHandler {
      * Emits a RectPick inventory operation debug log when debug logging is enabled.
      *
      * @param message SLF4J message pattern describing the operation.
-     * @param args pattern arguments passed through without additional processing.
+     * @param args    pattern arguments passed through without additional processing.
      */
     private static void debugLog(String message, Object... args) {
         if (Consts.debugLog) {
@@ -821,10 +883,10 @@ public final class InventoryRangeSelectionHandler {
         /**
          * Expands this inventory bounds with one active screen slot.
          *
-         * @param slot menu slot belonging to {@link #container}.
-         * @param slotLeft screen-space left edge.
-         * @param slotTop screen-space top edge.
-         * @param slotRight screen-space right edge.
+         * @param slot       menu slot belonging to {@link #container}.
+         * @param slotLeft   screen-space left edge.
+         * @param slotTop    screen-space top edge.
+         * @param slotRight  screen-space right edge.
          * @param slotBottom screen-space bottom edge.
          */
         private void includeSlot(Slot slot, double slotLeft, double slotTop, double slotRight, double slotBottom) {
@@ -870,12 +932,73 @@ public final class InventoryRangeSelectionHandler {
     }
 
     /**
+     * Mutable bounding box for AE2 storage slots that are not represented as one normal backing container.
+     */
+    private static final class StorageSlotBounds {
+        private final List<SlotBounds> slots = new ArrayList<>();
+        private double left = Double.POSITIVE_INFINITY;
+        private double top = Double.POSITIVE_INFINITY;
+        private double right = Double.NEGATIVE_INFINITY;
+        private double bottom = Double.NEGATIVE_INFINITY;
+
+        /**
+         * Expands this storage bounds with one visible AE2 storage slot.
+         *
+         * @param slot       AE2 storage menu slot.
+         * @param slotLeft   screen-space left edge.
+         * @param slotTop    screen-space top edge.
+         * @param slotRight  screen-space right edge.
+         * @param slotBottom screen-space bottom edge.
+         */
+        private void includeSlot(Slot slot, double slotLeft, double slotTop, double slotRight, double slotBottom) {
+            slots.add(new SlotBounds(slot, slotLeft, slotTop, slotRight, slotBottom));
+            left = Math.min(left, slotLeft);
+            top = Math.min(top, slotTop);
+            right = Math.max(right, slotRight);
+            bottom = Math.max(bottom, slotBottom);
+        }
+
+        /**
+         * Calculates shortest distance from a point to this storage bounds.
+         *
+         * @param point GUI-scaled point to test.
+         * @return zero when inside the storage area, otherwise Euclidean distance to the nearest edge or corner.
+         */
+        private double distanceTo(GuiPoint point) {
+            return distanceToRect(point, left, top, right, bottom);
+        }
+
+        /**
+         * Finds the storage slot nearest to the supplied point.
+         *
+         * @param point GUI-scaled point used for ranking slot rectangles.
+         * @return nearest AE2 storage slot, or {@code null} when no slot was collected.
+         */
+        private Slot nearestSlotTo(GuiPoint point) {
+            SlotBounds nearestSlot = null;
+            double nearestDistance = Double.POSITIVE_INFINITY;
+
+            for (SlotBounds slot : slots) {
+                double distance = slot.distanceTo(point);
+                if (distance >= nearestDistance) {
+                    continue;
+                }
+
+                nearestSlot = slot;
+                nearestDistance = distance;
+            }
+
+            return nearestSlot == null ? null : nearestSlot.slot();
+        }
+    }
+
+    /**
      * Immutable screen-space slot rectangle used for nearest-slot ranking.
      *
-     * @param slot menu slot represented by the rectangle.
-     * @param left screen-space left edge.
-     * @param top screen-space top edge.
-     * @param right screen-space right edge.
+     * @param slot   menu slot represented by the rectangle.
+     * @param left   screen-space left edge.
+     * @param top    screen-space top edge.
+     * @param right  screen-space right edge.
      * @param bottom screen-space bottom edge.
      */
     private record SlotBounds(Slot slot, double left, double top, double right, double bottom) {
@@ -893,10 +1016,10 @@ public final class InventoryRangeSelectionHandler {
     /**
      * Calculates shortest distance from a point to an axis-aligned rectangle.
      *
-     * @param point GUI-scaled point to test.
-     * @param left rectangle left edge.
-     * @param top rectangle top edge.
-     * @param right rectangle right edge.
+     * @param point  GUI-scaled point to test.
+     * @param left   rectangle left edge.
+     * @param top    rectangle top edge.
+     * @param right  rectangle right edge.
      * @param bottom rectangle bottom edge.
      * @return zero when the point is inside the rectangle, otherwise Euclidean distance to the nearest edge or corner.
      */
@@ -909,9 +1032,9 @@ public final class InventoryRangeSelectionHandler {
     /**
      * Delayed feedback state for transfers whose destination changes may arrive from the server later.
      *
-     * @param menuId menu id that started the transfer.
+     * @param menuId                     menu id that started the transfer.
      * @param beforeDestinationSnapshots destination counts captured before dispatch.
-     * @param remainingTicks number of client ticks left before the transfer is treated as ignored.
+     * @param remainingTicks             number of client ticks left before the transfer is treated as ignored.
      */
     private record PendingTransferFeedback(
             int menuId,
