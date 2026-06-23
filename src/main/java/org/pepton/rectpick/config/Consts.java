@@ -10,7 +10,7 @@ public final class Consts {
     /**
      * Enables RectPick operation logs used while checking inventory selection and transfer behavior.
      */
-    public static final boolean debugLog = true;
+    public static final boolean debugLog = false;
 
     /**
      * Maximum distance in GUI-scaled pixels for snapping a transfer target to the nearest inventory.
